@@ -41,11 +41,14 @@ in the `ocelot-workspace` repo and summarise as roughly:
    working row can show Working… / Thinking… with elapsed time. Raw reasoning text is
    deliberately not placed in public events.
 
-This list is not exhaustive and will drift as the fork advances. For an authoritative diff:
+This list is not exhaustive and will drift as the fork advances. For an authoritative diff,
+note that the working clone was created **depth-1 (`--depth=1`)**, so history must be
+deepened first:
 
 ```bash
 git remote add upstream https://github.com/elie222/rakazo.git   # if absent
-git fetch upstream
+git fetch --unshallow upstream      # required: the clone has only one commit
+# or, on the GitHub side, let the fork carry full history and compare branches there:
 git diff upstream/main...HEAD
 ```
 
