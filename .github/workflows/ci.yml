@@ -71,9 +71,6 @@ jobs:
       - run: pnpm db:generate
         env:
           DATABASE_URL: postgres://rakazo:rakazo@127.0.0.1:5433/rakazo
-      - name: Build the marketing site
-        if: env.WEB != 'true'
-        run: pnpm exec turbo build --filter=@rakazo/www
       # The size budgets read the bundles this step just built, in a fraction of a second.
       - run: pnpm build && node scripts/checks/bundle-size.mjs
         if: env.WEB == 'true'

@@ -19,11 +19,6 @@ on:
         required: false
         type: string
         default: "true"
-      www:
-        description: Capture the marketing homepage screenshots ("false" skips them)
-        required: false
-        type: string
-        default: "true"
       nightly:
         description: Also run the visual and edge-case specs kept out of pull requests
         required: false
@@ -195,48 +190,20 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # Homepage screenshots only: no copy or layout assertions. Runs beside the product shards so the
-  # slowest shard no longer waits on them after its own tests finish.
-  www-screenshots:
-    name: Marketing homepage screenshots
-    if: inputs.www != 'false'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: ./.github/actions/setup-workspace
-        with:
-          playwright: "true"
-      - name: Install Chromium
-        timeout-minutes: 5
-        run: pnpm --filter @rakazo/www exec playwright install chromium
-      - name: Capture marketing homepage screenshots
-        id: www_e2e
-        run: pnpm --filter @rakazo/www e2e
-      - name: Upload homepage screenshots
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: playwright-www-${{ github.run_id }}-${{ github.run_attempt }}
-          path: playwright-report-www
-          retention-days: 7
-          if-no-files-found: ignore
-
   # Keeps the single "Web E2E" check and artifact that branch protection and the publisher expect.
-  # Skipped with all three suites, which satisfies the required check; otherwise it fails unless
+  # Skipped when e2e is off, which satisfies the required check; otherwise it fails unless
   # every suite that was asked for passed.
   playwright:
     name: Web E2E
-    needs: [shard, heavy, www-screenshots]
-    if: ${{ !cancelled() && (inputs.e2e != 'false' || inputs.www != 'false') }}
+    needs: [shard, heavy]
+    if: ${{ !cancelled() && inputs.e2e != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       SUITES_PASSED: >-
         ${{
           (needs.shard.result == 'success' || (inputs.e2e == 'false' && needs.shard.result == 'skipped')) &&
-          (needs.heavy.result == 'success' || (inputs.e2e == 'false' && needs.heavy.result == 'skipped')) &&
-          (needs.www-screenshots.result == 'success' || (inputs.www == 'false' && needs.www-screenshots.result == 'skipped'))
+          (needs.heavy.result == 'success' || (inputs.e2e == 'false' && needs.heavy.result == 'skipped'))
         }}
     concurrency:
       group: ${{ inputs.publish_report && 'playwright-publication' || format('playwright-{0}', github.run_id) }}
@@ -260,17 +227,11 @@ jobs:
         with:
           pattern: playwright-heavy-*-${{ github.run_id }}-*
           path: ${{ runner.temp }}/heavy
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        continue-on-error: true
-        with:
-          pattern: playwright-www-${{ github.run_id }}-*
-          path: ${{ runner.temp }}/www
       - name: Combine shard results
         shell: bash
         env:
           SHARDS: ${{ runner.temp }}/shards
           HEAVY: ${{ runner.temp }}/heavy
-          WWW: ${{ runner.temp }}/www
           SHARD_TOTAL: 6
           HEAVY_SPECS: page-browser pages
           E2E: ${{ inputs.e2e }}
@@ -311,13 +272,6 @@ jobs:
             done
             copy_blob "Heavy $spec" "$latest"
           done
-          for attempt in $(seq "$GITHUB_RUN_ATTEMPT" -1 1); do
-            candidate="$WWW/playwright-www-$GITHUB_RUN_ID-$attempt"
-            if [[ -d "$candidate/playwright-report-www" ]]; then
-              cp -R "$candidate/playwright-report-www" .
-              break
-            fi
-          done
           exit "$missing"
       - name: Merge Playwright reports
         if: ${{ !cancelled() && hashFiles('blob-report/*.zip') != '' }}
@@ -347,7 +301,6 @@ jobs:
           name: playwright-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             playwright-report
-            playwright-report-www
             apps/web/test-results
             test-report/e2e
           retention-days: 7
@@ -371,14 +324,12 @@ jobs:
           PLAYWRIGHT_EVENT: ${{ github.event_name }}
           PLAYWRIGHT_BRANCH: ${{ github.ref_name }}
         run: bash scripts/publish-playwright-report.sh
-      - name: Fail when a shard, heavy spec, or homepage capture failed
+      - name: Fail when a shard or heavy spec failed
         if: env.SUITES_PASSED != 'true'
         env:
           SHARD_RESULT: ${{ needs.shard.result }}
           HEAVY_RESULT: ${{ needs.heavy.result }}
-          WWW_RESULT: ${{ needs.www-screenshots.result }}
         run: |
           echo "Playwright shards finished with: $SHARD_RESULT" >&2
           echo "Heavy page-browser/pages finished with: $HEAVY_RESULT" >&2
-          echo "Marketing homepage screenshots finished with: $WWW_RESULT" >&2
           exit 1

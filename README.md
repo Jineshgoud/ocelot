@@ -1,5 +1,7 @@
 # Ocelot
 
+![Ocelot](./docs/ocelot-hero.jpg)
+
 Self-hosted agent workspace. Web, Electron desktop and Expo mobile clients over one API,
 with a worker for background runs. Bring your own model and computer provider, or run the
 whole stack locally against Postgres.
@@ -11,7 +13,8 @@ In active development — not a release.
 Ocelot is a fork of [elie222/rakazo](https://github.com/elie222/rakazo), Apache-2.0. `LICENSE`
 and `NOTICE` are retained verbatim, and [`OCELOT.md`](OCELOT.md) states what this fork changes.
 Ocelot is independent of the upstream authors and is not endorsed by them; the Rakazo name and
-marks belong to them. Upstream's own README is preserved in git history at the fork point.
+marks belong to them. Upstream's marketing site (`apps/www`, which served rakazo.com) and its hero image were removed
+in this fork; upstream's own README is preserved in git history at the fork point.
 
 ## Monorepo
 
