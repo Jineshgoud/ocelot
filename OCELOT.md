@@ -41,9 +41,11 @@ in the `ocelot-workspace` repo and summarise as roughly:
    working row can show Working… / Thinking… with elapsed time. Raw reasoning text is
    deliberately not placed in public events.
 
-This list is not exhaustive and will drift as the fork advances. For an authoritative diff,
-note that the working clone was created **depth-1 (`--depth=1`)**, so history must be
-deepened first:
+This list is not exhaustive and will drift as the fork advances. Branding aside, the fork also
+replaces `README.md` with an Ocelot-specific one — upstream's original remains in git history
+at the fork point, and the translated READMEs are untouched upstream text. For an
+authoritative diff, note that the working clone was created **depth-1 (`--depth=1`)**, so
+history must be deepened first:
 
 ```bash
 git remote add upstream https://github.com/elie222/rakazo.git   # if absent
