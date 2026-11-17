@@ -2,88 +2,118 @@
 
 ![Ocelot](./docs/ocelot-hero.jpg)
 
-Self-hosted agent workspace. Web, Electron desktop and Expo mobile clients over one API,
-with a worker for background runs. Bring your own model and computer provider, or run the
-whole stack locally against Postgres.
+### Agents that run on your metal.
 
-In active development — not a release.
+Most agent products are a chat box you rent from someone else: their model, their computer,
+their memory, their bill. Ocelot is the opposite shape — the entire stack, in a repo you can
+run. Your model keys. Your sandboxes. Your database. Your phone.
 
-## Built on Rakazo
+Bring your own model, bring your own computer, or run the whole thing offline on a laptop
+with Postgres in Docker. Nothing about the product assumes you are someone else's tenant.
 
-Ocelot is a fork of [elie222/rakazo](https://github.com/elie222/rakazo), Apache-2.0. `LICENSE`
-and `NOTICE` are retained verbatim, and [`OCELOT.md`](OCELOT.md) states what this fork changes.
-Ocelot is independent of the upstream authors and is not endorsed by them; the Rakazo name and
-marks belong to them. Upstream's marketing site (`apps/www`, which served rakazo.com) and its hero image were removed
-in this fork; upstream's own README is preserved in git history at the fork point.
+---
 
-## Monorepo
+## Windows into the same brain
 
-**Apps**
+One API, four surfaces, no feature forks:
 
-| App | What it is |
+| Surface | What it gives you |
 |---|---|
-| `apps/api` | API + background worker entry points, Prisma over `pg`, ORPC routes |
-| `apps/web` | Vite web client — the main surface |
-| `apps/desktop` | Electron shell with `electron-updater` and Sentry |
-| `apps/mobile` | Expo / expo-router client |
-| `apps/worker` | Long-running job executor |
-| `apps/capabilities-showcase`, `apps/www` | Internal showcase and marketing surface |
+| **Web** (`apps/web`) | The full workspace — threads, runs, approvals, files |
+| **Desktop** (`apps/desktop`) | Electron, auto-updating, native shell around the same app |
+| **Phone** (`apps/mobile`) | Expo client for iOS and Android |
+| **Chat** (`packages/adapters`) | Slack, Telegram, WhatsApp and iMessage, as first-class transport |
 
-**Packages**
+Your agent doesn't live in a browser tab. It answers in Slack, keeps working in the
+background while your laptop is shut, and shows the same thread wherever you open it.
 
-| Package | Role |
-|---|---|
-| `packages/adapters` | Model and computer providers — sandbox SDKs (Boxd, Boat, Aliyun ECS/AppStream, E2B), S3/KMS, chat adapters (Slack, Telegram, WhatsApp), Composio |
-| `packages/adapter-kit` | Provider interface shared by the above |
-| `packages/core` | Threads, runs, agent loop |
-| `packages/db` | Prisma client + migrations |
-| `packages/contracts` | Shared schemas/types |
-| `packages/auth` | Sessions and auth |
-| `packages/chat-ui`, `packages/ui-web`, `packages/ui-tokens` | UI layer |
-| `packages/memory`, `packages/logging`, `packages/testkit` | Runtime support |
+## What makes it different
 
-## Status: rebrand in progress
+**The computer is pluggable, not implied.** Agents need somewhere to run. Ocelot treats that
+as an interface: Boxd, Boat, E2B desktops, Aliyun ECS/AppStream, or a local Docker sandbox.
+Swap the provider, keep the agent. Nothing is welded to one vendor's VM.
 
-Ocelot branding has landed in the welcome, auth and onboarding flows and in the provider
-picker (`apps/web/src/components/ProviderMark.tsx`, `apps/mobile/lib/provider-mode.ts`).
-Around **116 files still use `RAKAZO_`-prefixed env vars** (for example
-`VITE_RAKAZO_LOCAL_EMAIL`), so expect both names to appear until the rename is finished.
-Upstream's translated READMEs (`README.ja.md`, `README.zh-CN.md`, `README.th-TH.md`) are
-untouched upstream text.
+**Approval is architecture, not a checkbox.** Every consequential action can route through
+`action-approval` — there's an effect-key system so a retried action can't be double-applied,
+agent verification, and an explicit AI-consent layer with an audit trail. Content can be
+encrypted with your own KMS keys. Read [`docs/approvals.md`](docs/approvals.md) and
+[`docs/agent-verification.md`](docs/agent-verification.md) — the thinking is documented, not
+buried.
 
-## Requirements
+**It is actually operable.** Not "works on my machine" — there are forty-odd operator docs
+covering production deploys, backups, observability, secret managers (Infisical), fleet
+management, restricted networks, and upgrading. That's the difference between a demo and
+something you can leave running on a Tuesday night.
 
-- Node `^22.22.2 || ^24.0.0 || >=26.0.0`
-- pnpm `9.15.0` (declared as `packageManager` — use corepack)
-- PostgreSQL
+## How it hangs together
 
-## Getting started
+```
+    phone          desktop           web            Slack / Telegram / WhatsApp / iMessage
+      │               │               │                            │
+      └───────────────┴───────┬───────┴────────────────────────────┘
+                              │
+                     ┌────────▼─────────┐
+                     │     apps/api     │  ORPC endpoints
+                     │  apps/worker     │  background runs
+                     └────────┬─────────┘
+                              │
+        ┌─────────────┬───────┴────────┬──────────────┐
+   packages/core  packages/adapters  packages/db   packages/memory
+   threads, runs  models, computers,  Prisma + pg   recall over time
+   approvals      chat, integrations
+```
+
+## Sixty seconds to running
+
+Needs Node `^22.22.2 || ^24.0.0 || >=26.0.0` and pnpm `9.15.0` (via corepack), plus Postgres.
 
 ```bash
 corepack enable
 pnpm install
-cp .env.example .env     # set DATABASE_URL, BETTER_AUTH_SECRET (32+ chars), BETTER_AUTH_URL
+cp .env.example .env      # DATABASE_URL, BETTER_AUTH_SECRET (32+ chars), BETTER_AUTH_URL
 pnpm db:generate
 pnpm db:migrate
-pnpm dev
+pnpm dev                  # web + api + worker, together
 ```
 
-`pnpm dev` runs `scripts/dev.mjs`, which brings up the web client, API and worker together.
+`pnpm dev` runs `scripts/dev.mjs`, which starts the web client, API and worker in one go.
+
+## Bring your own everything
+
+| Layer | Options |
+|---|---|
+| **Models** | Any provider you configure — keys stay yours (`docs/self-host-models.md`) |
+| **Computers** | Boxd · Boat · E2B · Aliyun ECS / AppStream · local Docker |
+| **Chat** | Slack · Telegram · WhatsApp · iMessage |
+| **Integration** | Composio, plus a plugin system (`docs/build-a-plugin.md`) |
+| **Secrets** | `.env`, or Infisical (`docs/infisical-secrets.md`) |
+
+## Beyond the chat loop
+
+`docs/` reads like the product itself: **memory** that persists across sessions, **routines**
+for scheduled work, **skills** and **plugins** to extend the agent, **spaces** and **groups**
+for multi-agent and multi-human setups, **voice and calls**, **fleet management** for running
+many agents, and **import-an-agent** for bringing one over from elsewhere.
 
 ## Scripts
 
 | Command | Does |
 |---|---|
-| `pnpm dev` | All services via `scripts/dev.mjs` |
+| `pnpm dev` | Web + API + worker via `scripts/dev.mjs` |
 | `pnpm build` | Turbo build across the workspace |
-| `pnpm check` | Turbo type/lint checks |
-| `pnpm lint` / `pnpm format` | Biome |
-| `pnpm db:generate` / `pnpm db:migrate` | Prisma generate / migrate |
+| `pnpm check` | Type and lint checks |
 | `pnpm test` | Unit tests (node:test + vitest) |
-| `pnpm test:integration` / `pnpm test:e2e` | Harness-driven suites |
+| `pnpm test:integration`, `pnpm test:e2e` | Harness-driven suites |
+| `pnpm db:generate`, `pnpm db:migrate` | Prisma generate / migrate |
 | `pnpm sandbox:build` | Build the local computer sandbox image |
 
-## License
+## Where to read next
 
-Apache License 2.0 — see [`LICENSE`](LICENSE). Third-party notices are in [`NOTICE`](NOTICE)
-and must be retained when redistributing.
+Start with [`docs/getting-started.md`](docs/getting-started.md), then
+[`docs/computer.md`](docs/computer.md) for the sandbox model and
+[`docs/self-host-production.md`](docs/self-host-production.md) when you're ready to make it
+permanent.
+
+---
+
+Apache License 2.0 — see [`LICENSE`](LICENSE), [`NOTICE`](NOTICE) and [`OCELOT.md`](OCELOT.md).
